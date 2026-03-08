@@ -214,7 +214,7 @@ public partial class ChatPanel : CanvasLayer
         _chatInput = new LineEdit
         {
             Name = "ChatInput",
-            PlaceholderText = "Enter to send, Esc to cancel...",
+            PlaceholderText = L10n.Get("input_placeholder"),
             MaxLength = MaxInputLength,
             CaretBlink = true,
             ContextMenuEnabled = false,
@@ -422,6 +422,7 @@ public partial class ChatPanel : CanvasLayer
         _inputActive = true;
         _inputBar.Visible = true;
         _inputBar.MouseFilter = Control.MouseFilterEnum.Stop;
+        _chatInput.PlaceholderText = L10n.Get("input_placeholder");
         _chatInput.Text = string.Empty;
         _chatInput.CallDeferred(Control.MethodName.GrabFocus);
         FadeIn();
@@ -589,11 +590,12 @@ public partial class ChatPanel : CanvasLayer
             if (firstPower is not null)
             {
                 var creatureColor = new Color(firstPower.Power.CreatureColorHex);
-                label.AddText("提示");
+                var statusParts = L10n.Get("power_status").Split("{creature}");
+                label.AddText(statusParts[0]);
                 label.PushColor(creatureColor);
                 label.AddText(firstPower.Power.CreatureName);
                 label.Pop();
-                label.AddText("的状态: ");
+                if (statusParts.Length > 1) label.AddText(statusParts[1]);
 
                 foreach (var seg in segments)
                 {
@@ -619,10 +621,12 @@ public partial class ChatPanel : CanvasLayer
             else if (firstTarget is not null)
             {
                 var creatureColor = new Color(firstTarget.Target.CreatureColorHex);
-                label.AddText("提示注意");
+                var alertParts = L10n.Get("target_alert").Split("{creature}");
+                label.AddText(alertParts[0]);
                 label.PushColor(creatureColor);
                 label.AddText(firstTarget.Target.CreatureName);
                 label.Pop();
+                if (alertParts.Length > 1) label.AddText(alertParts[1]);
             }
             else
             {

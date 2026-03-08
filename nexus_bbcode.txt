@@ -1,0 +1,125 @@
+[heading]sts2_typing[/heading]
+
+适用于 [url=https://store.steampowered.com/app/646570/Slay_the_Spire_2/]Slay the Spire 2[/url] 的游戏内聊天 Mod。支持实时发送消息、分享 Emoji，并可将卡牌、遗物、药水、能力以可交互链接的形式插入聊天。
+
+[heading]功能[/heading]
+[list]
+[*][b]聊天面板[/b] — 悬浮于屏幕角落，不操作时自动淡出，不影响游戏体验
+[*][b]物品链接[/b] — [b]Alt + 左键[/b] 任意物品，在聊天中生成带悬停预览的可点击链接
+[*][b]Emoji 面板[/b] — 内置 18 个 Emoji（由 [url=https://lucide.dev]Lucide[/url] 提供）
+[*][b]多人同步[/b] — 消息通过游戏内置网络广播给所有在线玩家
+[*][b]键盘操作[/b] — [b]Enter[/b] 打开 / 发送，[b]Esc[/b] 关闭
+[*][b]多语言[/b] — 自动跟随游戏语言，支持 15 种语言
+[/list]
+
+[heading]快捷键[/heading]
+[list]
+[*]打开 / 发送消息：[b]Enter[/b]
+[*]关闭聊天框或 Emoji 选择器：[b]Esc[/b]
+[*]分享当前悬停的物品：[b]Alt + 左键[/b]
+[*]打开 Emoji 选择器：点击输入框内的 Emoji 按钮
+[/list]
+
+[heading]安装[/heading]
+[list=1]
+[*]从 [url=https://github.com/Shiroim/sts2_typing/releases/latest]最新 Release[/url] 下载 [b]typing.zip[/b]
+[*]解压到游戏 Mods 文件夹：[code]<Steam库路径>/steamapps/common/Slay the Spire 2/Mods/[/code]
+[*]启动游戏，在 Mod 菜单中启用
+[/list]
+
+[heading]从源码构建[/heading]
+
+[b]环境要求[/b]
+[list]
+[*][url=https://dotnet.microsoft.com/download].NET SDK[/url]（版本与游戏目录中 [b]global.json[/b] 一致）
+[*]支持 .NET 的 [url=https://godotengine.org/]Godot 4[/url]
+[*]Slay the Spire 2 游戏本体
+[/list]
+
+[b]步骤[/b]
+[list=1]
+[*]克隆本仓库
+[*]按需修改 [b]typing.csproj[/b] 中的游戏路径引用
+[*]执行 [b]dotnet build[/b]
+[*]通过 Godot 导出，或将 [b].pck[/b] / [b].dll[/b] 手动复制到 Mods 文件夹
+[/list]
+
+[heading]物品链接格式[/heading]
+
+消息中以 [b]{{type:id}}[/b] 编码，渲染为带样式的可交互文字：
+[list]
+[*]卡牌：[code]{{card:MegaCrit.Sts2.Cards.Strike:0}}[/code]
+[*]药水：[code]{{potion:MegaCrit.Sts2.Potions.FirePotion}}[/code]
+[*]遗物：[code]{{relic:MegaCrit.Sts2.Relics.BurningBlood}}[/code]
+[*]能力 / 目标生物：通过 [b]Alt + 左键[/b] 自动插入
+[/list]
+
+[heading]开源协议[/heading]
+
+[url=LICENSE]MIT License[/url]。图标来自 [url=https://lucide.dev]Lucide[/url]（ISC License）。
+
+[i]本 Mod 与 MegaCrit 官方无关，亦未获得官方背书。[/i]
+
+[line]
+
+[heading]sts2_typing[/heading]
+
+An in-game chat mod for [url=https://store.steampowered.com/app/646570/Slay_the_Spire_2/]Slay the Spire 2[/url]. Send messages in real time, share Emoji, and insert cards, relics, potions, and powers as interactive links.
+
+[heading]Features[/heading]
+[list]
+[*][b]Chat panel[/b] — Floats in the corner of the screen and fades out when idle
+[*][b]Item links[/b] — [b]Alt + Left-click[/b] any item to insert a hoverable link into chat
+[*][b]Emoji picker[/b] — 18 built-in icons via [url=https://lucide.dev]Lucide[/url]
+[*][b]Multiplayer sync[/b] — Messages broadcast to all connected players over the built-in network
+[*][b]Keyboard-first[/b] — [b]Enter[/b] to open/send, [b]Esc[/b] to close
+[*][b]Localized[/b] — Automatically follows the game language; 15 languages supported
+[/list]
+
+[heading]Keybindings[/heading]
+[list]
+[*]Open / Send message: [b]Enter[/b]
+[*]Close chat or Emoji picker: [b]Esc[/b]
+[*]Share hovered item: [b]Alt + Left-click[/b]
+[*]Open Emoji picker: Click the Emoji button in the input box
+[/list]
+
+[heading]Installation[/heading]
+[list=1]
+[*]Download [b]typing.zip[/b] from the [url=https://github.com/Shiroim/sts2_typing/releases/latest]latest release[/url]
+[*]Extract into the game's Mods folder:[code]<Steam library>/steamapps/common/Slay the Spire 2/Mods/[/code]
+[*]Launch the game and enable the mod in the Mod menu
+[/list]
+
+[heading]Building from Source[/heading]
+
+[b]Requirements[/b]
+[list]
+[*][url=https://dotnet.microsoft.com/download].NET SDK[/url] matching the version in the game's [b]global.json[/b]
+[*][url=https://godotengine.org/]Godot 4[/url] with .NET support
+[*]A copy of Slay the Spire 2
+[/list]
+
+[b]Steps[/b]
+[list=1]
+[*]Clone this repository
+[*]Edit the game path reference in [b]typing.csproj[/b] if needed
+[*]Run [b]dotnet build[/b]
+[*]Export via Godot or copy the [b].pck[/b] / [b].dll[/b] to the Mods folder manually
+[/list]
+
+[heading]Item Link Format[/heading]
+
+Links are encoded as [b]{{type:id}}[/b] in message text and rendered as styled interactive spans:
+[list]
+[*]Card: [code]{{card:MegaCrit.Sts2.Cards.Strike:0}}[/code]
+[*]Potion: [code]{{potion:MegaCrit.Sts2.Potions.FirePotion}}[/code]
+[*]Relic: [code]{{relic:MegaCrit.Sts2.Relics.BurningBlood}}[/code]
+[*]Power / Creature: Auto-inserted via [b]Alt + Left-click[/b]
+[/list]
+
+[heading]License[/heading]
+
+[url=LICENSE]MIT License[/url]. Icons from [url=https://lucide.dev]Lucide[/url] (ISC License).
+
+[i]This mod is not affiliated with or endorsed by MegaCrit.[/i]

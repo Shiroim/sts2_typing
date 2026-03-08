@@ -9,6 +9,7 @@
 - **Emoji 面板** — 内置 18 个 Emoji（由 [Lucide](https://lucide.dev) 提供）
 - **多人同步** — 消息通过游戏内置网络广播给所有在线玩家
 - **键盘操作** — `Enter` 打开 / 发送，`Esc` 关闭
+- **多语言** — 自动跟随游戏语言，支持 15 种语言
 
 ## 快捷键
 
@@ -73,6 +74,7 @@ An in-game chat mod for [Slay the Spire 2](https://store.steampowered.com/app/64
 - **Emoji picker** — 18 built-in icons via [Lucide](https://lucide.dev)
 - **Multiplayer sync** — Messages broadcast to all connected players over the built-in network
 - **Keyboard-first** — `Enter` to open/send, `Esc` to close
+- **Localized** — Automatically follows the game language; 15 languages supported
 
 ## Keybindings
 

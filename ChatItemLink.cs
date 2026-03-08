@@ -317,9 +317,9 @@ public static class ChatItemLink
 
     public static string GetItemTypeLabel(ItemLinkType type) => type switch
     {
-        ItemLinkType.Card => "提示了卡牌",
-        ItemLinkType.Potion => "提示了药水",
-        ItemLinkType.Relic => "提示了遗物",
+        ItemLinkType.Card => L10n.Get("shared_card"),
+        ItemLinkType.Potion => L10n.Get("shared_potion"),
+        ItemLinkType.Relic => L10n.Get("shared_relic"),
         _ => ""
     };
 
