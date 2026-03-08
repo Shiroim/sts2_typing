@@ -1,0 +1,7 @@
+{
+  "pck_name": "typing", // 和你的项目名一致
+  "name": "sts2_typing", // mod名称
+  "author": "shiroi", // 作者
+  "description": "support", // 说明
+  "version": "0.0.1" // 版本
+}

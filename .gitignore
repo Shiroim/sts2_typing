@@ -1,0 +1,16 @@
+# Godot 引擎缓存
+.godot/
+/android/
+*.import
+*.uid
+
+# 游戏本体文件（受版权保护）
+/Slay the Spire 2/
+
+# IDE 个人配置
+.cursor/
+.vscode/
+
+# .NET 编译输出
+bin/
+obj/
