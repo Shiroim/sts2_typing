@@ -2,6 +2,9 @@
 
 适用于 [Slay the Spire 2](https://store.steampowered.com/app/646570/Slay_the_Spire_2/) 的游戏内聊天 Mod。支持实时发送消息、分享 Emoji，并可将卡牌、遗物、药水、能力以可交互链接的形式插入聊天。
 
+![聊天界面](preview_chat.png)
+![游戏内效果](preview_gameplay.png)
+
 ## 功能
 
 - **聊天面板** — 悬浮于屏幕角落，不操作时自动淡出，不影响游戏体验
@@ -66,6 +69,9 @@
 # sts2_typing
 
 An in-game chat mod for [Slay the Spire 2](https://store.steampowered.com/app/646570/Slay_the_Spire_2/). Send messages in real time, share Emoji, and insert cards, relics, potions, and powers as interactive links.
+
+![Chat interface](preview_chat.png)
+![In-game preview](preview_gameplay.png)
 
 ## Features
 
