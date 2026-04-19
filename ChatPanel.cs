@@ -36,6 +36,9 @@ public partial class ChatPanel : CanvasLayer
     const int EmojiDisplaySize = 20;
     const int EmojiButtonSize = 22;
     const int EmojiColumns = 9;
+    const int AutocompleteMaxResults = 8;
+    const int AutocompleteFontSize = 16;
+    const float AutocompleteItemHeight = 28f;
     const float NetworkCheckInterval = 1.0f;
 
     static readonly Color BgColor = new(0.05f, 0.05f, 0.1f, 0.75f);
@@ -55,13 +58,22 @@ public partial class ChatPanel : CanvasLayer
     Button _emojiButton = null!;
     Control _emojiOverlay = null!;
     PanelContainer _emojiPopup = null!;
+    PanelContainer _autocompletePopup = null!;
+    VBoxContainer _autocompleteList = null!;
 
     bool _inputActive;
     bool _emojiOpen;
+    bool _autocompleteOpen;
     bool _pendingScroll;
     INetGameService? _netService;
     bool _handlerRegistered;
     readonly List<RichTextLabel> _messageLabels = new();
+    readonly List<ItemAutocompleteEntry> _autocompleteResults = new();
+    readonly List<Button> _autocompleteButtons = new();
+    int _autocompleteSelectedIndex = -1;
+    int _autocompleteVisibleStart;
+    int _autocompleteReplaceStart = -1;
+    int _autocompleteReplaceEnd = -1;
 
     Tween? _fadeTween;
     float _fadeTimer;
@@ -158,6 +170,8 @@ public partial class ChatPanel : CanvasLayer
         }
 
         UpdatePreviewPosition();
+        if (_autocompleteOpen)
+            PositionAutocompletePopup();
     }
 
     public override void _Input(InputEvent evt)
@@ -174,6 +188,12 @@ public partial class ChatPanel : CanvasLayer
 
         if (_inputActive)
         {
+            if (HandleAutocompleteInput(key))
+            {
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+
             if (key.Keycode == Key.Escape)
             {
                 if (_emojiOpen)
@@ -281,6 +301,7 @@ public partial class ChatPanel : CanvasLayer
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
         };
         ApplyInputStyle(_chatInput);
+        _chatInput.TextChanged += OnChatInputTextChanged;
         hbox.AddChild(_chatInput);
 
         _emojiButton = new Button
@@ -309,6 +330,7 @@ public partial class ChatPanel : CanvasLayer
         hbox.AddChild(_emojiButton);
 
         BuildEmojiPopup();
+        BuildAutocompletePopup();
         _messagePanel.Visible = false;
     }
 
@@ -373,6 +395,32 @@ public partial class ChatPanel : CanvasLayer
         }
     }
 
+    void BuildAutocompletePopup()
+    {
+        _autocompletePopup = new PanelContainer
+        {
+            Name = "AutocompletePopup",
+            Visible = false
+        };
+        ApplyPanelStyle(_autocompletePopup, InputBgColor, 8);
+        _root.AddChild(_autocompletePopup);
+
+        var margin = new MarginContainer();
+        margin.AddThemeConstantOverride("margin_left", 4);
+        margin.AddThemeConstantOverride("margin_right", 4);
+        margin.AddThemeConstantOverride("margin_top", 4);
+        margin.AddThemeConstantOverride("margin_bottom", 4);
+        _autocompletePopup.AddChild(margin);
+
+        _autocompleteList = new VBoxContainer
+        {
+            Name = "AutocompleteList",
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+        };
+        _autocompleteList.AddThemeConstantOverride("separation", 2);
+        margin.AddChild(_autocompleteList);
+    }
+
     void PositionEmojiPopup()
     {
         float popupW = PanelWidth;
@@ -385,6 +433,18 @@ public partial class ChatPanel : CanvasLayer
 
         _emojiPopup.Position = new Vector2(x, y);
         _emojiPopup.Size = new Vector2(popupW, popupH);
+    }
+
+    void PositionAutocompletePopup()
+    {
+        int visibleCount = GetVisibleAutocompleteCount();
+        float popupH = visibleCount * (AutocompleteItemHeight + 2f) + 18f;
+        var containerPos = _chatContainer.Position;
+
+        _autocompletePopup.Position = new Vector2(
+            containerPos.X,
+            containerPos.Y + MessageAreaHeight + 4 + InputBarHeight + 4);
+        _autocompletePopup.Size = new Vector2(PanelWidth, popupH);
     }
 
     void AnchorChatContainer()
@@ -485,6 +545,7 @@ public partial class ChatPanel : CanvasLayer
         _inputBar.MouseFilter = Control.MouseFilterEnum.Stop;
         _chatInput.PlaceholderText = L10n.Get("input_placeholder");
         _chatInput.Text = string.Empty;
+        CloseAutocompletePopup();
         _chatInput.CallDeferred(Control.MethodName.GrabFocus);
         FadeIn();
     }
@@ -493,6 +554,7 @@ public partial class ChatPanel : CanvasLayer
     {
         _inputActive = false;
         CloseEmojiPopup();
+        CloseAutocompletePopup();
         _chatInput.ReleaseFocus();
         HideInput();
         ResetFadeTimer();
@@ -502,6 +564,284 @@ public partial class ChatPanel : CanvasLayer
     {
         _inputBar.Visible = false;
         _inputBar.MouseFilter = Control.MouseFilterEnum.Ignore;
+        CloseAutocompletePopup();
+    }
+
+    #endregion
+
+    #region Autocomplete
+
+    void OnChatInputTextChanged(string _)
+    {
+        if (_autocompleteOpen)
+            RefreshAutocomplete(forceOpen: true);
+    }
+
+    bool HandleAutocompleteInput(InputEventKey key)
+    {
+        switch (key.Keycode)
+        {
+            case Key.Tab:
+                return HandleAutocompleteTab(key.ShiftPressed);
+            case Key.Up:
+                if (!_autocompleteOpen) return false;
+                MoveAutocompleteSelection(-1);
+                return true;
+            case Key.Down:
+                if (!_autocompleteOpen) return false;
+                MoveAutocompleteSelection(1);
+                return true;
+            case Key.Enter:
+            case Key.KpEnter:
+                if (!_autocompleteOpen || _autocompleteSelectedIndex < 0) return false;
+                AcceptAutocompleteSelection(_autocompleteSelectedIndex);
+                return true;
+            case Key.Escape:
+                if (!_autocompleteOpen) return false;
+                CloseAutocompletePopup();
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    bool HandleAutocompleteTab(bool reverse)
+    {
+        bool wasOpen = _autocompleteOpen;
+        if (!RefreshAutocomplete(forceOpen: true))
+            return false;
+
+        if (!wasOpen || _autocompleteSelectedIndex < 0)
+            _autocompleteSelectedIndex = 0;
+        else
+            MoveAutocompleteSelection(reverse ? -1 : 1);
+
+        RefreshAutocompleteButtons();
+        return true;
+    }
+
+    bool RefreshAutocomplete(bool forceOpen)
+    {
+        if (!TryGetAutocompleteContext(out int replaceStart, out int replaceEnd, out string prefix))
+        {
+            CloseAutocompletePopup();
+            return false;
+        }
+
+        var matches = ChatItemLink.FindAutocompleteEntries(prefix);
+        if (matches.Count == 0)
+        {
+            CloseAutocompletePopup();
+            return false;
+        }
+
+        string? selectedName = _autocompleteSelectedIndex >= 0
+            && _autocompleteSelectedIndex < _autocompleteResults.Count
+            ? _autocompleteResults[_autocompleteSelectedIndex].DisplayName
+            : null;
+
+        _autocompleteReplaceStart = replaceStart;
+        _autocompleteReplaceEnd = replaceEnd;
+        _autocompleteResults.Clear();
+        _autocompleteResults.AddRange(matches);
+        _autocompleteSelectedIndex = selectedName is null
+            ? 0
+            : _autocompleteResults.FindIndex(entry => entry.DisplayName == selectedName);
+        if (_autocompleteSelectedIndex < 0)
+            _autocompleteSelectedIndex = 0;
+
+        EnsureAutocompleteSelectionVisible();
+
+        if (forceOpen || _autocompleteOpen)
+            OpenAutocompletePopup();
+
+        return true;
+    }
+
+    bool TryGetAutocompleteContext(out int replaceStart, out int replaceEnd, out string prefix)
+    {
+        replaceStart = -1;
+        replaceEnd = -1;
+        prefix = string.Empty;
+
+        string text = _chatInput.Text;
+        int caret = Math.Clamp(_chatInput.CaretColumn, 0, text.Length);
+        if (text.Length == 0)
+            return false;
+
+        int start = caret;
+        while (start > 0 && !char.IsWhiteSpace(text[start - 1]))
+            start--;
+
+        int end = caret;
+        while (end < text.Length && !char.IsWhiteSpace(text[end]))
+            end++;
+
+        prefix = text[start..caret].Trim();
+        if (string.IsNullOrWhiteSpace(prefix))
+            return false;
+
+        replaceStart = start;
+        replaceEnd = end;
+        return true;
+    }
+
+    void OpenAutocompletePopup()
+    {
+        _autocompleteOpen = true;
+        PositionAutocompletePopup();
+        RefreshAutocompleteButtons();
+        _autocompletePopup.Visible = true;
+    }
+
+    void CloseAutocompletePopup()
+    {
+        _autocompleteOpen = false;
+        _autocompletePopup.Visible = false;
+        _autocompleteResults.Clear();
+        _autocompleteSelectedIndex = -1;
+        _autocompleteVisibleStart = 0;
+        _autocompleteReplaceStart = -1;
+        _autocompleteReplaceEnd = -1;
+
+        foreach (var button in _autocompleteButtons)
+            button.QueueFree();
+        _autocompleteButtons.Clear();
+    }
+
+    void RefreshAutocompleteButtons()
+    {
+        foreach (var button in _autocompleteButtons)
+            button.QueueFree();
+        _autocompleteButtons.Clear();
+
+        int visibleStart = GetAutocompleteVisibleStart();
+        int visibleEnd = Math.Min(visibleStart + AutocompleteMaxResults, _autocompleteResults.Count);
+
+        for (int i = visibleStart; i < visibleEnd; i++)
+        {
+            int index = i;
+            var entry = _autocompleteResults[i];
+            var button = new Button
+            {
+                Text = $"[{ChatItemLink.GetAutocompleteTypeLabel(entry.Link.Type)}] {entry.DisplayName}",
+                Alignment = HorizontalAlignment.Left,
+                CustomMinimumSize = new Vector2(PanelWidth - 16f, AutocompleteItemHeight),
+                FocusMode = Control.FocusModeEnum.None,
+                ClipText = true,
+                MouseDefaultCursorShape = Control.CursorShape.PointingHand
+            };
+            ApplyAutocompleteButtonStyle(
+                button,
+                i == _autocompleteSelectedIndex,
+                ChatItemLink.GetRarityColor(entry.Link));
+            if (_sharpFont != null) button.AddThemeFontOverride("font", _sharpFont);
+            button.AddThemeFontSizeOverride("font_size", AutocompleteFontSize);
+            button.Pressed += () => AcceptAutocompleteSelection(index);
+            _autocompleteList.AddChild(button);
+            _autocompleteButtons.Add(button);
+        }
+    }
+
+    void ApplyAutocompleteButtonStyle(Button button, bool selected, Color textColor)
+    {
+        var normal = new StyleBoxFlat
+        {
+            BgColor = selected ? new Color(0.22f, 0.27f, 0.4f, 0.95f) : new Color(0f, 0f, 0f, 0.2f),
+            CornerRadiusTopLeft = 4,
+            CornerRadiusTopRight = 4,
+            CornerRadiusBottomLeft = 4,
+            CornerRadiusBottomRight = 4,
+            ContentMarginLeft = 8,
+            ContentMarginRight = 8,
+            ContentMarginTop = 4,
+            ContentMarginBottom = 4
+        };
+        var hover = new StyleBoxFlat
+        {
+            BgColor = new Color(0.18f, 0.23f, 0.34f, 0.95f),
+            CornerRadiusTopLeft = 4,
+            CornerRadiusTopRight = 4,
+            CornerRadiusBottomLeft = 4,
+            CornerRadiusBottomRight = 4,
+            ContentMarginLeft = 8,
+            ContentMarginRight = 8,
+            ContentMarginTop = 4,
+            ContentMarginBottom = 4
+        };
+
+        button.AddThemeStyleboxOverride("normal", normal);
+        button.AddThemeStyleboxOverride("hover", hover);
+        button.AddThemeStyleboxOverride("pressed", hover);
+        button.AddThemeStyleboxOverride("focus", normal);
+        button.AddThemeColorOverride("font_color", textColor);
+        button.AddThemeColorOverride("font_hover_color", textColor);
+        button.AddThemeColorOverride("font_pressed_color", textColor);
+        button.AddThemeColorOverride("font_focus_color", textColor);
+    }
+
+    void MoveAutocompleteSelection(int delta)
+    {
+        if (_autocompleteResults.Count == 0)
+            return;
+
+        _autocompleteSelectedIndex = (_autocompleteSelectedIndex + delta + _autocompleteResults.Count)
+            % _autocompleteResults.Count;
+        EnsureAutocompleteSelectionVisible();
+        RefreshAutocompleteButtons();
+    }
+
+    void AcceptAutocompleteSelection(int index)
+    {
+        if (index < 0 || index >= _autocompleteResults.Count)
+            return;
+
+        string text = _chatInput.Text;
+        int start = Math.Clamp(_autocompleteReplaceStart, 0, text.Length);
+        int end = Math.Clamp(_autocompleteReplaceEnd, start, text.Length);
+
+        string replacement = $"[{_autocompleteResults[index].DisplayName}]";
+        if (end == text.Length)
+            replacement += " ";
+
+        _chatInput.Text = text[..start] + replacement + text[end..];
+        _chatInput.CaretColumn = start + replacement.Length;
+        CloseAutocompletePopup();
+        _chatInput.GrabFocus();
+    }
+
+    int GetVisibleAutocompleteCount() => Math.Min(_autocompleteResults.Count, AutocompleteMaxResults);
+
+    int GetAutocompleteVisibleStart()
+    {
+        int visibleCount = GetVisibleAutocompleteCount();
+        if (visibleCount == 0)
+            return 0;
+
+        int maxStart = Math.Max(0, _autocompleteResults.Count - visibleCount);
+        return Math.Clamp(_autocompleteVisibleStart, 0, maxStart);
+    }
+
+    void EnsureAutocompleteSelectionVisible()
+    {
+        int visibleCount = GetVisibleAutocompleteCount();
+        if (visibleCount == 0 || _autocompleteSelectedIndex < 0)
+        {
+            _autocompleteVisibleStart = 0;
+            return;
+        }
+
+        if (_autocompleteSelectedIndex < _autocompleteVisibleStart)
+        {
+            _autocompleteVisibleStart = _autocompleteSelectedIndex;
+            return;
+        }
+
+        if (_autocompleteSelectedIndex >= _autocompleteVisibleStart + visibleCount)
+            _autocompleteVisibleStart = _autocompleteSelectedIndex - visibleCount + 1;
+
+        int maxStart = Math.Max(0, _autocompleteResults.Count - visibleCount);
+        _autocompleteVisibleStart = Math.Clamp(_autocompleteVisibleStart, 0, maxStart);
     }
 
     #endregion
@@ -568,7 +908,7 @@ public partial class ChatPanel : CanvasLayer
 
     void SubmitMessage()
     {
-        string text = _chatInput.Text.Trim();
+        string text = ChatItemLink.ReplaceLocalizedItemShortcuts(_chatInput.Text.Trim());
         if (string.IsNullOrEmpty(text))
             return;
         SendText(text);
@@ -821,6 +1161,7 @@ public partial class ChatPanel : CanvasLayer
                 {
                     ItemLinkType.Potion => CreatePotionPreview(link),
                     ItemLinkType.Relic => CreateRelicPreview(link),
+                    ItemLinkType.Power => CreateStandalonePowerPreview(link),
                     _ => null
                 };
 
@@ -935,6 +1276,13 @@ public partial class ChatPanel : CanvasLayer
         var relic = ChatItemLink.ResolveRelic(link);
         if (relic is null) return null;
         return CreateHoverTipControl(relic.HoverTip);
+    }
+
+    Control? CreateStandalonePowerPreview(ItemLinkData link)
+    {
+        var tip = ChatItemLink.ResolvePowerHoverTip(link);
+        if (tip is null) return null;
+        return CreateHoverTipControl(tip.Value);
     }
 
     Control? CreatePowerPreview(PowerLinkData data, bool isPlayer)

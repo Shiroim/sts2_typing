@@ -15,6 +15,7 @@ public static class L10n
             ["shared_card"] = "shared a card",
             ["shared_potion"] = "shared a potion",
             ["shared_relic"] = "shared a relic",
+            ["shared_power"] = "shared a power",
         },
         ["zh_CN"] = new()
         {
@@ -24,6 +25,7 @@ public static class L10n
             ["shared_card"] = "提示了卡牌",
             ["shared_potion"] = "提示了药水",
             ["shared_relic"] = "提示了遗物",
+            ["shared_power"] = "提示了状态",
         },
         ["zh_TW"] = new()
         {
@@ -33,6 +35,7 @@ public static class L10n
             ["shared_card"] = "提示了卡牌",
             ["shared_potion"] = "提示了藥水",
             ["shared_relic"] = "提示了遺物",
+            ["shared_power"] = "提示了狀態",
         },
         ["ja"] = new()
         {
@@ -42,6 +45,7 @@ public static class L10n
             ["shared_card"] = "カードを共有",
             ["shared_potion"] = "ポーションを共有",
             ["shared_relic"] = "レリックを共有",
+            ["shared_power"] = "パワーを共有",
         },
         ["ko"] = new()
         {

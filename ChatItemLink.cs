@@ -1,5 +1,8 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Godot;
 using MegaCrit.Sts2.Core.Entities.Cards;
@@ -50,11 +53,13 @@ public sealed record TextSegment(string Text) : MessageSegment;
 public sealed record LinkSegment(ItemLinkData Link, string DisplayName) : MessageSegment;
 public sealed record PowerSegment(PowerLinkData Power, string DisplayName) : MessageSegment;
 public sealed record TargetSegment(TargetData Target) : MessageSegment;
+public readonly record struct ItemAutocompleteEntry(string DisplayName, ItemLinkData Link);
 
 public static class ChatItemLink
 {
+    static readonly StringComparer ItemNameComparer = StringComparer.CurrentCultureIgnoreCase;
     static readonly Regex LinkPattern = new(
-        @"\{\{(card|potion|relic):([A-Z0-9_]+\.[A-Z0-9_]+)(?::(\d+))?\}\}",
+        @"\{\{(card|potion|relic|power):([A-Z0-9_]+\.[A-Z0-9_]+)(?::(\d+))?\}\}",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     static readonly Regex PowerPattern = new(
@@ -64,6 +69,11 @@ public static class ChatItemLink
     static readonly Regex TargetPattern = new(
         @"\{\{target\|(.+?)\|([0-9A-Fa-f]{6,8})\}\}",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    static readonly Regex ItemShortcutPattern = new(@"\[([^\[\]\r\n]+)\]", RegexOptions.Compiled);
+
+    static string? _itemAutocompleteLocale;
+    static IReadOnlyList<ItemAutocompleteEntry>? _itemAutocompleteEntries;
+    static Dictionary<string, ItemLinkData>? _itemLinkByLocalizedTitle;
 
     public static string EncodeCard(CardModel card)
     {
@@ -94,6 +104,45 @@ public static class ChatItemLink
     {
         string colorHex = GetCreatureColorHex(creature);
         return $"{{{{target|{creature.Name}|{colorHex}}}}}";
+    }
+
+    public static IReadOnlyList<ItemAutocompleteEntry> FindAutocompleteEntries(string prefix)
+    {
+        EnsureItemAutocompleteCache();
+
+        if (_itemAutocompleteEntries is null || string.IsNullOrWhiteSpace(prefix))
+            return Array.Empty<ItemAutocompleteEntry>();
+
+        prefix = prefix.Trim();
+        return _itemAutocompleteEntries
+            .Where(entry => entry.DisplayName.StartsWith(prefix, StringComparison.CurrentCultureIgnoreCase))
+            .ToArray();
+    }
+
+    public static string ReplaceLocalizedItemShortcuts(string text)
+    {
+        EnsureItemAutocompleteCache();
+        if (_itemLinkByLocalizedTitle is null || _itemLinkByLocalizedTitle.Count == 0)
+            return text;
+
+        return ItemShortcutPattern.Replace(text, match =>
+        {
+            string localizedName = match.Groups[1].Value.Trim();
+            int upgradeLevel = 0;
+
+            while (localizedName.EndsWith('+'))
+            {
+                upgradeLevel++;
+                localizedName = localizedName[..^1].TrimEnd();
+            }
+
+            if (!_itemLinkByLocalizedTitle.TryGetValue(localizedName, out var link))
+                return match.Value;
+
+            if (link.Type == ItemLinkType.Card)
+                link = link with { UpgradeLevel = upgradeLevel };
+            return link.Encode();
+        });
     }
 
     public static string GetCreatureColorHex(Creature creature)
@@ -236,6 +285,16 @@ public static class ChatItemLink
         catch { return null; }
     }
 
+    public static PowerModel? ResolvePower(ItemLinkData link)
+    {
+        try
+        {
+            var modelId = ModelId.Deserialize(link.ModelIdStr);
+            return ModelDb.GetById<PowerModel>(modelId);
+        }
+        catch { return null; }
+    }
+
     public static PowerModel? ResolvePower(PowerLinkData data)
     {
         try
@@ -244,6 +303,31 @@ public static class ChatItemLink
             return ModelDb.GetById<PowerModel>(modelId);
         }
         catch { return null; }
+    }
+
+    public static HoverTip? ResolvePowerHoverTip(ItemLinkData link)
+    {
+        var power = ResolvePower(link);
+        if (power is null)
+            return null;
+
+        if (!power.HasSmartDescription)
+            return power.DumbHoverTip;
+
+        var desc = power.SmartDescription;
+        desc.Add("Amount", 1m);
+        desc.Add("OnPlayer", true);
+        desc.Add("IsMultiplayer", true);
+        desc.Add("PlayerCount", 2m);
+        desc.Add("OwnerName", "");
+        desc.Add("ApplierName", "");
+        desc.Add("TargetName", "");
+        desc.Add("singleStarIcon", "[img]res://images/packed/sprite_fonts/star_icon.png[/img]");
+        desc.Add("energyPrefix", EnergyIconHelper.GetPrefix(power));
+
+        try { power.DynamicVars.AddTo(desc); } catch { }
+
+        return new HoverTip(power, desc.GetFormattedText(), true);
     }
 
     public static HoverTip? ResolvePowerHoverTip(PowerLinkData data, bool isPlayer)
@@ -309,6 +393,7 @@ public static class ChatItemLink
                 ItemLinkType.Card => ResolveCard(link)?.Title,
                 ItemLinkType.Potion => ResolvePotion(link)?.Title.GetFormattedText(),
                 ItemLinkType.Relic => ResolveRelic(link)?.Title.GetFormattedText(),
+                ItemLinkType.Power => ResolvePower(link)?.Title.GetFormattedText(),
                 _ => null
             };
         }
@@ -320,6 +405,7 @@ public static class ChatItemLink
         ItemLinkType.Card => L10n.Get("shared_card"),
         ItemLinkType.Potion => L10n.Get("shared_potion"),
         ItemLinkType.Relic => L10n.Get("shared_relic"),
+        ItemLinkType.Power => L10n.Get("shared_power"),
         _ => ""
     };
 
@@ -332,6 +418,7 @@ public static class ChatItemLink
                 ItemLinkType.Card => GetCardRarityColor(ResolveCard(link)?.Rarity ?? CardRarity.Common),
                 ItemLinkType.Potion => GetPotionRarityColor(ResolvePotion(link)?.Rarity ?? PotionRarity.Common),
                 ItemLinkType.Relic => GetRelicRarityColor(ResolveRelic(link)?.Rarity ?? RelicRarity.Common),
+                ItemLinkType.Power => GetPowerTypeColor(ResolvePower(link)?.GetTypeForAmount(1) ?? PowerType.None),
                 _ => Colors.White
             };
         }
@@ -366,6 +453,13 @@ public static class ChatItemLink
         _ => new Color("FFF6E2")
     };
 
+    static Color GetPowerTypeColor(PowerType type) => type switch
+    {
+        PowerType.Buff => new Color("77ff67"),
+        PowerType.Debuff => new Color("ff6563"),
+        _ => new Color("FFF6E2")
+    };
+
     static bool TryParseType(string typeStr, out ItemLinkType type)
     {
         type = default;
@@ -374,7 +468,185 @@ public static class ChatItemLink
             case "card": type = ItemLinkType.Card; return true;
             case "potion": type = ItemLinkType.Potion; return true;
             case "relic": type = ItemLinkType.Relic; return true;
+            case "power": type = ItemLinkType.Power; return true;
             default: return false;
+        }
+    }
+
+    public static string GetAutocompleteTypeLabel(ItemLinkType type) => type switch
+    {
+        ItemLinkType.Card => "C",
+        ItemLinkType.Relic => "R",
+        ItemLinkType.Power => "P",
+        _ => type.ToString()
+    };
+
+    static void EnsureItemAutocompleteCache()
+    {
+        string locale = TranslationServer.GetLocale();
+        if (_itemAutocompleteEntries is not null
+            && _itemLinkByLocalizedTitle is not null
+            && _itemAutocompleteLocale == locale)
+            return;
+
+        _itemAutocompleteLocale = locale;
+        var entries = new List<ItemAutocompleteEntry>();
+        var cardsById = new Dictionary<string, CardModel>(StringComparer.Ordinal);
+        foreach (var card in EnumerateStaticPropertyValues<CardModel>("AllCards"))
+            cardsById.TryAdd(card.Id.ToString(), card);
+        if (cardsById.Count == 0)
+        {
+            foreach (var modelId in EnumerateStaticPropertyValues<ModelId>("AllCardIds"))
+            {
+                try
+                {
+                    var card = ModelDb.GetById<CardModel>(modelId);
+                    cardsById.TryAdd(card.Id.ToString(), card);
+                }
+                catch { }
+            }
+        }
+
+        foreach (var card in cardsById.Values)
+        {
+            string displayName = card.Title?.Trim() ?? string.Empty;
+            if (string.IsNullOrEmpty(displayName))
+                continue;
+
+            entries.Add(new ItemAutocompleteEntry(
+                displayName,
+                new ItemLinkData(ItemLinkType.Card, card.Id.ToString(), 0)));
+        }
+
+        var relicsById = new Dictionary<string, RelicModel>(StringComparer.Ordinal);
+        foreach (var relic in EnumerateStaticPropertyValues<RelicModel>("AllRelics"))
+            relicsById.TryAdd(relic.Id.ToString(), relic);
+
+        if (relicsById.Count == 0)
+        {
+            foreach (var modelId in EnumerateStaticPropertyValues<ModelId>("AllRelicIds"))
+            {
+                try
+                {
+                    var relic = ModelDb.GetById<RelicModel>(modelId);
+                    relicsById.TryAdd(relic.Id.ToString(), relic);
+                }
+                catch { }
+            }
+        }
+
+        foreach (var relic in relicsById.Values)
+        {
+            string displayName = relic.Title.GetFormattedText().Trim();
+            if (string.IsNullOrEmpty(displayName))
+                continue;
+
+            entries.Add(new ItemAutocompleteEntry(
+                displayName,
+                new ItemLinkData(ItemLinkType.Relic, relic.Id.ToString(), 0)));
+        }
+
+        var powersById = new Dictionary<string, PowerModel>(StringComparer.Ordinal);
+        foreach (var power in EnumerateStaticPropertyValues<PowerModel>("AllPowers"))
+            powersById.TryAdd(power.Id.ToString(), power);
+
+        if (powersById.Count == 0)
+        {
+            foreach (var modelId in EnumerateStaticPropertyValues<ModelId>("AllPowerIds"))
+            {
+                try
+                {
+                    var power = ModelDb.GetById<PowerModel>(modelId);
+                    powersById.TryAdd(power.Id.ToString(), power);
+                }
+                catch { }
+            }
+        }
+
+        foreach (var power in powersById.Values)
+        {
+            string displayName = power.Title.GetFormattedText().Trim();
+            if (string.IsNullOrEmpty(displayName))
+                continue;
+
+            entries.Add(new ItemAutocompleteEntry(
+                displayName,
+                new ItemLinkData(ItemLinkType.Power, power.Id.ToString(), 0)));
+        }
+
+        var deduped = entries
+            .GroupBy(entry => entry.DisplayName, ItemNameComparer)
+            .Select(group => group
+                .OrderBy(entry => GetAutocompleteSortOrder(entry.Link.Type))
+                .ThenBy(entry => entry.Link.ModelIdStr, StringComparer.Ordinal)
+                .First())
+            .OrderBy(entry => GetAutocompleteSortOrder(entry.Link.Type))
+            .ThenBy(entry => entry.DisplayName, ItemNameComparer)
+            .ThenBy(entry => entry.Link.ModelIdStr, StringComparer.Ordinal)
+            .ToArray();
+
+        _itemAutocompleteEntries = deduped;
+        _itemLinkByLocalizedTitle = deduped.ToDictionary(
+            entry => entry.DisplayName,
+            entry => entry.Link,
+            ItemNameComparer);
+    }
+
+    static int GetAutocompleteSortOrder(ItemLinkType type) => type switch
+    {
+        ItemLinkType.Card => 0,
+        ItemLinkType.Power => 1,
+        ItemLinkType.Relic => 2,
+        ItemLinkType.Potion => 3,
+        _ => 4
+    };
+
+    static IEnumerable<T> EnumerateStaticPropertyValues<T>(string propertyName)
+    {
+        foreach (var type in GetAssemblyTypesSafe(typeof(CardModel).Assembly))
+        {
+            PropertyInfo? property = null;
+            try
+            {
+                property = type.GetProperty(
+                    propertyName,
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            }
+            catch { }
+
+            if (property is null || property.GetIndexParameters().Length != 0)
+                continue;
+
+            object? value;
+            try
+            {
+                value = property.GetValue(null);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (value is not IEnumerable enumerable)
+                continue;
+
+            foreach (var item in enumerable)
+            {
+                if (item is T typed)
+                    yield return typed;
+            }
+        }
+    }
+
+    static IEnumerable<Type> GetAssemblyTypesSafe(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            return ex.Types.OfType<Type>();
         }
     }
 }
