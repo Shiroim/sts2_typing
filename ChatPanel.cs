@@ -13,6 +13,7 @@ using MegaCrit.Sts2.Core.Nodes;
 using MegaCrit.Sts2.Core.Nodes.Cards;
 using MegaCrit.Sts2.Core.Nodes.Cards.Holders;
 using MegaCrit.Sts2.Core.Nodes.Combat;
+using Typing.Scripts;
 using MegaCrit.Sts2.Core.Nodes.Potions;
 using MegaCrit.Sts2.Core.Nodes.Relics;
 using MegaCrit.Sts2.Core.Nodes.Screens.CharacterSelect;
@@ -211,8 +212,10 @@ public partial class ChatPanel : CanvasLayer
             return;
         }
 
-        if ((key.Keycode == Key.Enter || key.Keycode == Key.KpEnter)
-            && !key.AltPressed && !key.CtrlPressed)
+        var toggleKey = ModConfigBridge.ChatToggleKey;
+        bool toggleMatched = key.Keycode == toggleKey
+            || (toggleKey == Key.Enter && key.Keycode == Key.KpEnter);
+        if (toggleMatched && !key.AltPressed && !key.CtrlPressed)
         {
             var focused = GetViewport().GuiGetFocusOwner();
             if (focused is TextEdit or LineEdit)
