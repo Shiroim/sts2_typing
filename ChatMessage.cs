@@ -10,6 +10,8 @@ public struct ChatMessage : INetMessage, IPacketSerializable
 
     public bool ShouldBroadcast => true;
 
+    public bool ShouldBuffer => false;
+
     public NetTransferMode Mode => NetTransferMode.Reliable;
 
     public LogLevel LogLevel => LogLevel.Info;
