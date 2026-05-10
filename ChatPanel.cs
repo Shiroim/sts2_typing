@@ -549,6 +549,7 @@ public partial class ChatPanel : CanvasLayer
         _chatInput.PlaceholderText = L10n.Get("input_placeholder");
         _chatInput.Text = string.Empty;
         CloseAutocompletePopup();
+        _chatInput.GrabFocus();
         _chatInput.CallDeferred(Control.MethodName.GrabFocus);
         FadeIn();
     }
