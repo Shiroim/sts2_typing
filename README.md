@@ -9,18 +9,20 @@ An in-game chat mod for [Slay the Spire 2](https://store.steampowered.com/app/64
 
 - **Chat panel** — Floats in the corner of the screen and fades out when idle
 - **Item links** — `Alt + Left-click` any item to insert a hoverable link into chat
+- **Item autocomplete** — Type `@` in the input box to search cards, relics, potions, and powers by name; select a result to insert the link automatically
 - **Emoji picker** — 18 built-in icons via [Lucide](https://lucide.dev)
 - **Multiplayer sync** — Messages broadcast to all connected players over the built-in network
-- **Keyboard-first** — `Enter` to open/send, `Esc` to close
+- **Keyboard-first** — `Enter` to open/send, `Esc` to close; open key is rebindable via [ModConfig](https://github.com/xhyrzldf/ModConfig-STS2)
 - **Localized** — Automatically follows the game language; 15 languages supported
 
 ## Keybindings
 
 | Action | Key |
 |---|---|
-| Open / Send message | `Enter` |
+| Open / Send message | `Enter` *(rebindable via ModConfig)* |
 | Close chat or Emoji picker | `Esc` |
 | Share hovered item | `Alt + Left-click` |
+| Search items by name | Type `@` in the input box |
 | Open Emoji picker | Click the Emoji button in the input box |
 
 ## Installation
@@ -32,7 +34,7 @@ An in-game chat mod for [Slay the Spire 2](https://store.steampowered.com/app/64
    ```
 3. Launch the game and enable the mod in the Mod menu
 
-**0.99 beta (public-beta branch):** The mod uses the new manifest format. Put `typing.json` and `typing.dll` in the same subfolder (e.g. `Mods/typing/`). No `.pck` is required for this mod.
+The folder must contain both `typing.json` and `typing.dll`. No `.pck` file is required.
 
 ## Building from Source
 
@@ -47,7 +49,7 @@ An in-game chat mod for [Slay the Spire 2](https://store.steampowered.com/app/64
 1. Clone this repository
 2. Edit the game path reference in `typing.csproj` if needed
 3. Run `dotnet build`
-4. Copy `typing.dll` and `typing.json` into a mod subfolder (e.g. `Mods/typing/`). The build target copies both automatically when `Sts2Dir` is set. For 0.99 beta, only the JSON manifest and DLL are needed (no PCK).
+4. Copy `typing.dll` and `typing.json` into a mod subfolder (e.g. `Mods/typing/`). The build target copies both automatically when `Sts2Dir` is set (no PCK required).
 
 ## Item Link Format
 
@@ -79,18 +81,20 @@ Links are encoded as `{{type:id}}` in message text and rendered as styled intera
 
 - **聊天面板** — 悬浮于屏幕角落，不操作时自动淡出，不影响游戏体验
 - **物品链接** — `Alt + 左键` 任意物品，在聊天中生成带悬停预览的可点击链接
+- **物品自动补全** — 在输入框中输入 `@` 后按名称搜索卡牌、遗物、药水和能力；选中结果后自动插入链接
 - **Emoji 面板** — 内置 18 个 Emoji（由 [Lucide](https://lucide.dev) 提供）
 - **多人同步** — 消息通过游戏内置网络广播给所有在线玩家
-- **键盘操作** — `Enter` 打开 / 发送，`Esc` 关闭
+- **键盘操作** — `Enter` 打开 / 发送，`Esc` 关闭；打开键可通过 [ModConfig](https://github.com/xhyrzldf/ModConfig-STS2) 自定义绑定
 - **多语言** — 自动跟随游戏语言，支持 15 种语言
 
 ## 快捷键
 
 | 操作 | 按键 |
 |---|---|
-| 打开 / 发送消息 | `Enter` |
+| 打开 / 发送消息 | `Enter`（可通过 ModConfig 重新绑定） |
 | 关闭聊天框或 Emoji 选择器 | `Esc` |
 | 分享当前悬停的物品 | `Alt + 左键` |
+| 按名称搜索物品 | 在输入框中输入 `@` |
 | 打开 Emoji 选择器 | 点击输入框内的 Emoji 按钮 |
 
 ## 安装
@@ -102,7 +106,7 @@ Links are encoded as `{{type:id}}` in message text and rendered as styled intera
    ```
 3. 启动游戏，在 Mod 菜单中启用
 
-**0.99 beta（public-beta 分支）：** 使用新 manifest 格式，将 `typing.json` 与 `typing.dll` 放在同一子目录（如 `Mods/typing/`）即可，本 mod 不需要 `.pck`。
+文件夹内须同时包含 `typing.json` 与 `typing.dll`，无需 `.pck` 文件。
 
 ## 从源码构建
 
@@ -117,7 +121,7 @@ Links are encoded as `{{type:id}}` in message text and rendered as styled intera
 1. 克隆本仓库
 2. 按需修改 `typing.csproj` 中的游戏路径引用
 3. 执行 `dotnet build`
-4. 将 `typing.dll` 和 `typing.json` 复制到同一 mod 子目录（如 `Mods/typing/`）。配置好 `Sts2Dir` 后构建会自动复制；0.99 beta 只需 manifest 与 DLL，无需 PCK。
+4. 将 `typing.dll` 和 `typing.json` 复制到同一 mod 子目录（如 `Mods/typing/`）。配置好 `Sts2Dir` 后构建会自动复制，无需 PCK。
 
 ## 物品链接格式
 
