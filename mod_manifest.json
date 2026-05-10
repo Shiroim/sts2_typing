@@ -2,6 +2,6 @@
   "pck_name": "typing",
   "name": "sts2_typing",
   "author": "shiroi",
-  "description": "In-game multiplayer chat with item links, emoji, and hover previews. Press Enter to chat, Alt+Click to share cards, relics, potions & powers. | 游戏内多人聊天，支持物品链接、Emoji 和悬停预览。Enter 打开聊天，Alt+左键 分享卡牌、遗物、药水和能力。",
+  "description": "In-game multiplayer chat with item links, emoji, and hover previews. Press Enter to chat, Alt+Click to share cards, relics, potions, and powers.",
   "version": "0.0.4"
 }
